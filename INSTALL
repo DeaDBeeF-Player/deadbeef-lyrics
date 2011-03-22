@@ -1,5 +1,6 @@
 mkdir build
 cd build
-cmake -DCMAKE_INSTALL_PREFIX=</path/to/deadbeef>  ..
+cmake -DCMAKE_INSTALL_PREFIX=<deadbeef install prefix>  ..
 make
+make install
 
