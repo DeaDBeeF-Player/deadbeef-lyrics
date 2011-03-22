@@ -33,8 +33,8 @@ static DB_functions_t *deadbeef;
 
 typedef struct _LyricsInfo
 {
-  const char *artist;
-  const char *title;
+  char *artist;
+  char *title;
   char *url;
   char *text;
   int text_size;
@@ -49,6 +49,12 @@ lyrics_load (DB_functions_t *api) {
 
 static void
 lyrics_free(LyricsInfo *lyricsInfo) {
+    if (lyricsInfo->artist) {
+        free(lyricsInfo->artist);
+    }
+    if (lyricsInfo->title) {
+        free(lyricsInfo->title);
+    }
     if (lyricsInfo->url) {
         free(lyricsInfo->url);
     }
@@ -380,11 +386,17 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
 static int
 lyrics_action_lookup (DB_plugin_action_t *action, DB_playItem_t *it)
 {
-    const char *artist = deadbeef->pl_find_meta (it, "artist");
-    const char *title = deadbeef->pl_find_meta (it, "title");
+    const char *artist_meta = deadbeef->pl_find_meta (it, "artist");
+    const char *title_meta = deadbeef->pl_find_meta (it, "title");
 
-    if (!title || !artist)
+    if (!title_meta || !artist_meta)
         return 0;
+
+    char *artist = (char *)malloc(strlen(artist_meta) + 1);
+    char *title = (char *)malloc(strlen(title_meta) + 1);
+
+    strcpy(artist, artist_meta);
+    strcpy(title, title_meta);
 
     char eartist [strlen (artist) * 3 + 1];
     char etitle [strlen (title) * 3 + 1];
@@ -400,8 +412,8 @@ lyrics_action_lookup (DB_plugin_action_t *action, DB_playItem_t *it)
         return 0;
 
     LyricsInfo *lyricsInfo = malloc(sizeof(LyricsInfo));
-    lyricsInfo->artist = (char *)artist;
-    lyricsInfo->title = (char *)title;
+    lyricsInfo->artist = artist;
+    lyricsInfo->title = title;
     lyricsInfo->text = NULL;
     lyricsInfo->text_size = 0;
     lyricsInfo->url = url;
