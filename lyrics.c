@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <curl/curl.h>
 #include <pcre.h>
 #include <gtk/gtk.h>
 #include <deadbeef/deadbeef.h>
@@ -68,98 +67,6 @@ lyrics_free(LyricsInfo *lyricsInfo) {
 static void
 lyrics_free_callback(GtkWidget *widget, LyricsInfo *lyricsInfo) {
     lyrics_free(lyricsInfo);
-}
-
-static size_t
-lyrics_curl_res (void *ptr, size_t size, size_t nmemb, LyricsInfo *lyricsInfo)
-{
-    int new_size = size * nmemb;
-
-    lyricsInfo->text = (char *)realloc(lyricsInfo->text, lyricsInfo->text_size + new_size + 1);
-
-    if (lyricsInfo->text) {
-        memcpy(lyricsInfo->text + lyricsInfo->text_size - 1, ptr, new_size);
-        lyricsInfo->text_size += new_size;
-        lyricsInfo->text[lyricsInfo->text_size] = 0;
-    } else {
-        return 0;
-    }
-    
-    return new_size;
-}
-
-static int
-curl_request (LyricsInfo *lyricsInfo) {
-    CURL *curl;
-    curl = curl_easy_init ();
-    if (!curl) {
-        printf ("lyrics: failed to init curl\n");
-        return -1;
-    }
-
-    char lyrics_err[CURL_ERROR_SIZE];
-    
-    curl_easy_setopt(curl, CURLOPT_URL, lyricsInfo->url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, lyrics_curl_res);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, lyricsInfo);
-    memset(lyrics_err, 0, sizeof(lyrics_err));
-    curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, lyrics_err);
-    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    curl_easy_setopt (curl, CURLOPT_NOSIGNAL, 1);
-    curl_easy_setopt (curl, CURLOPT_NOPROGRESS, 1);
-    if (deadbeef->conf_get_int ("network.proxy", 0)) {
-        curl_easy_setopt (curl, CURLOPT_PROXY, deadbeef->conf_get_str ("network.proxy.address", ""));
-        curl_easy_setopt (curl, CURLOPT_PROXYPORT, deadbeef->conf_get_int ("network.proxy.port", 8080));
-        const char *type = deadbeef->conf_get_str ("network.proxy.type", "HTTP");
-        int curlproxytype = CURLPROXY_HTTP;
-        if (!strcasecmp (type, "HTTP")) {
-            curlproxytype = CURLPROXY_HTTP;
-        }
-#if LIBCURL_VERSION_MINOR >= 19 && LIBCURL_VERSION_PATCH >= 4
-        else if (!strcasecmp (type, "HTTP_1_0")) {
-            curlproxytype = CURLPROXY_HTTP_1_0;
-        }
-#endif
-#if LIBCURL_VERSION_MINOR >= 15 && LIBCURL_VERSION_PATCH >= 2
-        else if (!strcasecmp (type, "SOCKS4")) {
-            curlproxytype = CURLPROXY_SOCKS4;
-        }
-#endif
-        else if (!strcasecmp (type, "SOCKS5")) {
-            curlproxytype = CURLPROXY_SOCKS5;
-        }
-#if LIBCURL_VERSION_MINOR >= 18 && LIBCURL_VERSION_PATCH >= 0
-        else if (!strcasecmp (type, "SOCKS4A")) {
-            curlproxytype = CURLPROXY_SOCKS4A;
-        }
-        else if (!strcasecmp (type, "SOCKS5_HOSTNAME")) {
-            curlproxytype = CURLPROXY_SOCKS5_HOSTNAME;
-        }
-#endif
-        curl_easy_setopt (curl, CURLOPT_PROXYTYPE, curlproxytype);
-
-        const char *proxyuser = deadbeef->conf_get_str ("network.proxy.username", "");
-        const char *proxypass = deadbeef->conf_get_str ("network.proxy.password", "");
-        if (*proxyuser || *proxypass) {
-#if LIBCURL_VERSION_MINOR >= 19 && LIBCURL_VERSION_PATCH >= 1
-            curl_easy_setopt (curl, CURLOPT_PROXYUSERNAME, proxyuser);
-            curl_easy_setopt (curl, CURLOPT_PROXYUSERNAME, proxypass);
-#else
-            char pwd[200];
-            snprintf (pwd, sizeof (pwd), "%s:%s", proxyuser, proxypass);
-            curl_easy_setopt (curl, CURLOPT_PROXYUSERPWD, pwd);
-#endif
-        }
-    }
-    int status = curl_easy_perform(curl);
-    curl_easy_cleanup (curl);
-    if (!status) {
-        lyricsInfo->text[lyricsInfo->text_size] = 0;
-    }
-    if (status != 0) {
-        printf("curl request failed, err:\n%s\n", lyrics_err);
-    }
-    return status;
 }
 
 // returns number of encoded chars on success, or -1 in case of error
@@ -306,81 +213,97 @@ lyrics_show (LyricsInfo *lyricsInfo) {
 static void
 lyrics_lookup_thread (void *lyricsInfo_ptr) {
     LyricsInfo *lyricsInfo = lyricsInfo_ptr;
-    
+
+    DB_FILE *fp = deadbeef->fopen (lyricsInfo->url);
+    if (!fp) {
+        trace ("lyrics: failed to open %s\n", lyricsInfo->url);
+        lyrics_free(lyricsInfo);
+        return;
+    }
+
     lyricsInfo->text = malloc(1);
     lyricsInfo->text_size = 1;
-    
-    int status = curl_request (lyricsInfo);
 
-    if (!status)
-    {
-        const char *error;
-        int erroffset;
-        int ovector[6];
-        
-        // Compile regexp
-        pcre *re = pcre_compile("&lt;lyrics>(.*)&lt;/lyrics>",
-        PCRE_MULTILINE | PCRE_DOTALL | PCRE_UTF8,
-        &error, &erroffset, NULL);
+    char *buffer[4096];
+    int len;
 
-        if (re == NULL)
-        {
-            printf("PCRE compilation failed at offset %d: %s\n", erroffset, error);
+    while ((len = deadbeef->fread (buffer, 1, sizeof (buffer), fp)) > 0) {
+        lyricsInfo->text = (char *)realloc(lyricsInfo->text, lyricsInfo->text_size + sizeof (buffer) + 1);
+
+        if (lyricsInfo->text) {
+            memcpy(lyricsInfo->text + lyricsInfo->text_size - 1, buffer, sizeof (buffer));
+            lyricsInfo->text_size += sizeof (buffer);
+            lyricsInfo->text[lyricsInfo->text_size] = 0;
+        } else {
             lyrics_free(lyricsInfo);
             return;
-        }
-
-        int rc = pcre_exec(re, NULL, lyricsInfo->text, lyricsInfo->text_size, 0, 0, ovector, 6);
-
-        if (rc < 0)
-        {
-            switch(rc)
-            {
-                case PCRE_ERROR_NOMATCH:
-                    trace("No match\n");
-
-                    gdk_threads_enter();
-
-                    GtkWidget* dialog = gtk_message_dialog_new (NULL,
-                     GTK_DIALOG_DESTROY_WITH_PARENT,
-                     GTK_MESSAGE_ERROR,
-                     GTK_BUTTONS_CLOSE,
-                     "Lyrics not found");
-
-                    g_signal_connect_swapped (dialog, "response",
-                        G_CALLBACK (gtk_widget_destroy),
-                        dialog);
-
-                    gtk_widget_show(dialog);
-
-                    gdk_threads_leave();
-                    break;
-                default:
-                    printf("Matching error %d\n", rc); break;
-            }
-            lyrics_free(lyricsInfo);
-            return;
-        }
-
-        char *substring_start = lyricsInfo->text + ovector[2];
-        int substring_length = ovector[3] - ovector[2];
-        char *lyrics_text = NULL;
-        if (-1 == asprintf (&lyrics_text, "%.*s\n", substring_length, substring_start))
-        {
-            lyrics_free(lyricsInfo);
-            return;
-        }
-
-        free(lyricsInfo->text);
-        lyricsInfo->text = lyrics_text;
-        
-        lyrics_show(lyricsInfo);
+            
+        }        
     }
-    else
+
+    deadbeef->fclose (fp);
+    
+    const char *error;
+    int erroffset;
+    int ovector[6];
+    
+    // Compile regexp
+    pcre *re = pcre_compile("&lt;lyrics>(.*)&lt;/lyrics>",
+    PCRE_MULTILINE | PCRE_DOTALL | PCRE_UTF8,
+    &error, &erroffset, NULL);
+
+    if (re == NULL)
+    {
+        printf("PCRE compilation failed at offset %d: %s\n", erroffset, error);
+        lyrics_free(lyricsInfo);
+        return;
+    }
+
+    int rc = pcre_exec(re, NULL, lyricsInfo->text, lyricsInfo->text_size, 0, 0, ovector, 6);
+
+    if (rc < 0)
+    {
+        switch(rc)
+        {
+            case PCRE_ERROR_NOMATCH:
+                trace("No match\n");
+
+                gdk_threads_enter();
+
+                GtkWidget* dialog = gtk_message_dialog_new (NULL,
+                 GTK_DIALOG_DESTROY_WITH_PARENT,
+                 GTK_MESSAGE_ERROR,
+                 GTK_BUTTONS_CLOSE,
+                 "Lyrics not found");
+
+                g_signal_connect_swapped (dialog, "response",
+                    G_CALLBACK (gtk_widget_destroy),
+                    dialog);
+
+                gtk_widget_show(dialog);
+
+                gdk_threads_leave();
+                break;
+            default:
+                printf("Matching error %d\n", rc); break;
+        }
+        lyrics_free(lyricsInfo);
+        return;
+    }
+
+    char *substring_start = lyricsInfo->text + ovector[2];
+    int substring_length = ovector[3] - ovector[2];
+    char *lyrics_text = NULL;
+    if (-1 == asprintf (&lyrics_text, "%.*s\n", substring_length, substring_start))
     {
         lyrics_free(lyricsInfo);
         return;
     }
+
+    free(lyricsInfo->text);
+    lyricsInfo->text = lyrics_text;
+    
+    lyrics_show(lyricsInfo);
 }
 
 static int
