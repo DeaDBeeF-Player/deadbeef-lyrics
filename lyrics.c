@@ -23,7 +23,7 @@
 #include <curl/curl.h>
 #include <pcre.h>
 #include <gtk/gtk.h>
-#include "deadbeef/deadbeef.h"
+#include <deadbeef/deadbeef.h>
 
 //#define trace(...) { fprintf(stderr, __VA_ARGS__); }
 #define trace(fmt,...)
