@@ -24,8 +24,8 @@
 #include <gtk/gtk.h>
 #include <deadbeef/deadbeef.h>
 
-//#define trace(...) { fprintf(stderr, __VA_ARGS__); }
-#define trace(fmt,...)
+#define trace(...) { fprintf(stderr, __VA_ARGS__); }
+//#define trace(fmt,...)
 
 static DB_misc_t plugin;
 static DB_functions_t *deadbeef;
@@ -38,6 +38,8 @@ typedef struct _LyricsInfo
   char *text;
   int text_size;
   GtkTextBuffer *text_buffer;
+  gboolean window_closed;
+  uintptr_t mutex;
 } LyricsInfo;
 
 DB_plugin_t *
@@ -47,26 +49,24 @@ lyrics_load (DB_functions_t *api) {
 }
 
 static void
-lyrics_free(LyricsInfo *lyricsInfo) {
-    if (lyricsInfo->artist) {
-        free(lyricsInfo->artist);
-    }
-    if (lyricsInfo->title) {
-        free(lyricsInfo->title);
-    }
-    if (lyricsInfo->url) {
-        free(lyricsInfo->url);
-    }
-    if (lyricsInfo->text) {
-        free(lyricsInfo->text);
-    }
+lyrics_free(void *lyricsInfo_ptr) {
+    LyricsInfo *lyricsInfo = lyricsInfo_ptr;
+    
+    deadbeef->mutex_lock(lyricsInfo->mutex);
+    free(lyricsInfo->artist);
+    free(lyricsInfo->title);
+    free(lyricsInfo->url);
+    free(lyricsInfo->text);
     free(lyricsInfo);
+    deadbeef->mutex_unlock(lyricsInfo->mutex);
+    deadbeef->mutex_free(lyricsInfo->mutex);
 }
 
 
 static void
 lyrics_free_callback(GtkWidget *widget, LyricsInfo *lyricsInfo) {
-    lyrics_free(lyricsInfo);
+    lyricsInfo->window_closed = TRUE;
+    deadbeef->thread_start(lyrics_free, lyricsInfo);
 }
 
 // returns number of encoded chars on success, or -1 in case of error
@@ -226,13 +226,16 @@ static void
 lyrics_lookup_thread (void *lyricsInfo_ptr) {
     LyricsInfo *lyricsInfo = lyricsInfo_ptr;
 
+    deadbeef->mutex_lock(lyricsInfo->mutex);
+
     lyrics_window_create(lyricsInfo);
 
     DB_FILE *fp = deadbeef->fopen (lyricsInfo->url);
     if (!fp) {
         trace ("lyrics: failed to open %s\n", lyricsInfo->url);
-        lyrics_free(lyricsInfo);
-        return;
+        free(lyricsInfo->text);
+        lyricsInfo->text = "Not found.";
+        goto update;
     }
 
     lyricsInfo->text = malloc(1);
@@ -249,13 +252,17 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
             lyricsInfo->text_size += sizeof (buffer);
             lyricsInfo->text[lyricsInfo->text_size] = 0;
         } else {
-            lyrics_free(lyricsInfo);
-            return;
-            
+            lyricsInfo->text = "Not found.";
+            goto update;
         }        
     }
 
     deadbeef->fclose (fp);
+
+    if (lyricsInfo->window_closed) {
+        deadbeef->mutex_unlock(lyricsInfo->mutex);
+        return;
+    }
     
     const char *error;
     int erroffset;
@@ -269,8 +276,9 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
     if (re == NULL)
     {
         printf("PCRE compilation failed at offset %d: %s\n", erroffset, error);
-        lyrics_free(lyricsInfo);
-        return;
+        free(lyricsInfo->text);
+        lyricsInfo->text = "Not found.";
+        goto update;
     }
 
     int rc = pcre_exec(re, NULL, lyricsInfo->text, lyricsInfo->text_size, 0, 0, ovector, 6);
@@ -281,28 +289,14 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
         {
             case PCRE_ERROR_NOMATCH:
                 trace("No match\n");
-
-                gdk_threads_enter();
-
-                GtkWidget* dialog = gtk_message_dialog_new (NULL,
-                 GTK_DIALOG_DESTROY_WITH_PARENT,
-                 GTK_MESSAGE_ERROR,
-                 GTK_BUTTONS_CLOSE,
-                 "Lyrics not found");
-
-                g_signal_connect_swapped (dialog, "response",
-                    G_CALLBACK (gtk_widget_destroy),
-                    dialog);
-
-                gtk_widget_show(dialog);
-
-                gdk_threads_leave();
                 break;
             default:
-                printf("Matching error %d\n", rc); break;
+                trace("Matching error %d\n", rc);
+                break;
         }
-        lyrics_free(lyricsInfo);
-        return;
+        free(lyricsInfo->text);
+        lyricsInfo->text = "Not found.";
+        goto update;
     }
 
     char *substring_start = lyricsInfo->text + ovector[2];
@@ -310,14 +304,20 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
     char *lyrics_text = NULL;
     if (-1 == asprintf (&lyrics_text, "%.*s\n", substring_length, substring_start))
     {
-        lyrics_free(lyricsInfo);
-        return;
+        free(lyricsInfo->text);
+        lyricsInfo->text = "Not found.";
+        goto update;
+    } else {
+        free(lyricsInfo->text);
+        lyricsInfo->text = lyrics_text;
     }
 
-    free(lyricsInfo->text);
-    lyricsInfo->text = lyrics_text;
-    
-    lyrics_window_update(lyricsInfo);
+update:    
+    if (!lyricsInfo->window_closed) {
+        lyrics_window_update(lyricsInfo);
+    }
+
+    deadbeef->mutex_unlock(lyricsInfo->mutex);
 }
 
 static int
@@ -354,6 +354,8 @@ lyrics_action_lookup (DB_plugin_action_t *action, DB_playItem_t *it)
     lyricsInfo->text = NULL;
     lyricsInfo->text_size = 0;
     lyricsInfo->url = url;
+    lyricsInfo->window_closed = FALSE;
+    lyricsInfo->mutex = deadbeef->mutex_create();
 
     deadbeef->thread_start(lyrics_lookup_thread, lyricsInfo);
     return 0;
