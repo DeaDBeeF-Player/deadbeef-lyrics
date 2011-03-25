@@ -38,6 +38,7 @@ typedef struct _LyricsInfo
   int text_size;
   GtkTextBuffer *text_buffer;
   gboolean window_closed;
+  gboolean error;
   uintptr_t mutex;
 } LyricsInfo;
 
@@ -216,8 +217,13 @@ lyrics_window_update (LyricsInfo *lyricsInfo) {
     gtk_text_buffer_get_end_iter (lyricsInfo->text_buffer, &endIter);
     gtk_text_buffer_delete (lyricsInfo->text_buffer, &startIter, &endIter);
 
-    gtk_text_buffer_insert_with_tags_by_name(lyricsInfo->text_buffer,
-        &startIter, lyricsInfo->text, -1, "text", NULL);
+    if (!lyricsInfo->error) {
+        gtk_text_buffer_insert_with_tags_by_name(lyricsInfo->text_buffer,
+            &startIter, lyricsInfo->text, -1, "text", NULL);
+    } else {
+        gtk_text_buffer_insert_with_tags_by_name(lyricsInfo->text_buffer,
+            &startIter, "Not found", -1, "text", NULL);
+    }
     gdk_threads_leave ();
 }
 
@@ -232,8 +238,7 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
     DB_FILE *fp = deadbeef->fopen (lyricsInfo->url);
     if (!fp) {
         trace ("lyrics: failed to open %s\n", lyricsInfo->url);
-        free(lyricsInfo->text);
-        lyricsInfo->text = "Not found";
+        lyricsInfo->error = TRUE;
         goto update;
     }
 
@@ -251,7 +256,8 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
             lyricsInfo->text_size += sizeof (buffer);
             lyricsInfo->text[lyricsInfo->text_size] = 0;
         } else {
-            lyricsInfo->text = "Not found";
+            deadbeef->fclose (fp);
+            lyricsInfo->error = TRUE;
             goto update;
         }        
     }
@@ -274,7 +280,7 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
         lyricsInfo->text = realloc(lyricsInfo->text, endIndex - startIndex + 1);
         lyricsInfo->text[endIndex - startIndex] = 0;
     } else {
-        lyricsInfo->text = "Not found";
+        lyricsInfo->error = TRUE;
     }
     
 
@@ -321,6 +327,7 @@ lyrics_action_lookup (DB_plugin_action_t *action, DB_playItem_t *it)
     lyricsInfo->text_size = 0;
     lyricsInfo->url = url;
     lyricsInfo->window_closed = FALSE;
+    lyricsInfo->error = FALSE;
     lyricsInfo->mutex = deadbeef->mutex_create();
 
     deadbeef->thread_start(lyrics_lookup_thread, lyricsInfo);
