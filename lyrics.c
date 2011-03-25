@@ -233,7 +233,7 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
     if (!fp) {
         trace ("lyrics: failed to open %s\n", lyricsInfo->url);
         free(lyricsInfo->text);
-        lyricsInfo->text = "Not found.";
+        lyricsInfo->text = "Not found";
         goto update;
     }
 
@@ -251,7 +251,7 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
             lyricsInfo->text_size += sizeof (buffer);
             lyricsInfo->text[lyricsInfo->text_size] = 0;
         } else {
-            lyricsInfo->text = "Not found.";
+            lyricsInfo->text = "Not found";
             goto update;
         }        
     }
@@ -274,7 +274,7 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
         lyricsInfo->text = realloc(lyricsInfo->text, endIndex - startIndex + 1);
         lyricsInfo->text[endIndex - startIndex] = 0;
     } else {
-        lyricsInfo->text = "Not found.";
+        lyricsInfo->text = "Not found";
     }
     
 
