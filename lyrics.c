@@ -364,7 +364,7 @@ static DB_misc_t plugin = {
     .plugin.version_major = 1,
     .plugin.version_minor = 0,
     .plugin.type = DB_PLUGIN_MISC,
-    .plugin.name = "lyrics",
+    .plugin.name = "Lyrics",
     .plugin.descr = "Lyrics plugin for DeaDBeeF music player",
     .plugin.copyright = 
         "Copyright (C) 2011 Oleg Shparber <trollixx@users.sourceforge.net>\n"
