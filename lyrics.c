@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <pcre.h>
 #include <gtk/gtk.h>
 #include <deadbeef/deadbeef.h>
 
@@ -264,53 +263,20 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
         return;
     }
     
-    const char *error;
-    int erroffset;
-    int ovector[6];
-    
-    // Compile regexp
-    pcre *re = pcre_compile("&lt;lyrics>(.*)&lt;/lyrics>",
-    PCRE_MULTILINE | PCRE_DOTALL | PCRE_UTF8 | PCRE_UNGREEDY,
-    &error, &erroffset, NULL);
+    char *startAnchor = "&lt;lyrics>";
+    char *endAnchor = "&lt;/lyrics>";
+    char *startIndex = strstr(lyricsInfo->text, startAnchor);
+    char *endIndex = strstr(lyricsInfo->text, endAnchor);
 
-    if (re == NULL)
-    {
-        printf("PCRE compilation failed at offset %d: %s\n", erroffset, error);
-        free(lyricsInfo->text);
-        lyricsInfo->text = "Not found.";
-        goto update;
-    }
-
-    int rc = pcre_exec(re, NULL, lyricsInfo->text, lyricsInfo->text_size, 0, 0, ovector, 6);
-
-    if (rc < 0)
-    {
-        switch(rc)
-        {
-            case PCRE_ERROR_NOMATCH:
-                trace("No match\n");
-                break;
-            default:
-                trace("Matching error %d\n", rc);
-                break;
-        }
-        free(lyricsInfo->text);
-        lyricsInfo->text = "Not found.";
-        goto update;
-    }
-
-    char *substring_start = lyricsInfo->text + ovector[2];
-    int substring_length = ovector[3] - ovector[2];
-    char *lyrics_text = NULL;
-    if (-1 == asprintf (&lyrics_text, "%.*s\n", substring_length, substring_start))
-    {
-        free(lyricsInfo->text);
-        lyricsInfo->text = "Not found.";
-        goto update;
+    if (startIndex && endIndex) {
+        startIndex += strlen(startAnchor);
+        memcpy(lyricsInfo->text, startIndex, endIndex - startIndex + 1);
+        lyricsInfo->text = realloc(lyricsInfo->text, endIndex - startIndex + 1);
+        lyricsInfo->text[endIndex - startIndex] = 0;
     } else {
-        free(lyricsInfo->text);
-        lyricsInfo->text = lyrics_text;
+        lyricsInfo->text = "Not found.";
     }
+    
 
 update:    
     if (!lyricsInfo->window_closed) {
