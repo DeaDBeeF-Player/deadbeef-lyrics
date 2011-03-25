@@ -152,33 +152,31 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
     lyricsInfo->text_buffer = buffer;
 
     /* Tags */
-    gtk_text_buffer_create_tag(buffer, "bold", 
-      "weight", PANGO_WEIGHT_BOLD, NULL);
+    gtk_text_buffer_create_tag(buffer, "title",
+        "weight", PANGO_WEIGHT_BOLD,
+        "pixels_below_lines", 10,
+        "font", "20",
+        "left_margin", 5,
+        NULL);
 
-    gtk_text_buffer_create_tag(buffer, "gap",
-       "pixels_below_lines", 10, NULL);
-
-    gtk_text_buffer_create_tag(buffer, "lmarg", 
-      "left_margin", 5, NULL);
-
-    gtk_text_buffer_create_tag (buffer, "font",
-      "font", "20", NULL); 
-
+    gtk_text_buffer_create_tag(buffer, "text", 
+        "left_margin", 5,
+        NULL);
 
     gtk_text_buffer_get_iter_at_offset(buffer, &iter, 0);
 
     /* Text inserts */
     gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        lyricsInfo->artist, -1, "font", "bold", "lmarg", "gap", NULL);
+        lyricsInfo->artist, -1, "title", NULL);
     gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        " - ", -1, "font", "bold", "lmarg", "gap", NULL);
+        " - ", -1, "title", NULL);
     gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        lyricsInfo->title, -1, "font", "bold", "lmarg", "gap", NULL);
+        lyricsInfo->title, -1, "title", NULL);
     gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        "\n", -1, "font", "bold", "lmarg", "gap", NULL);
+        "\n", -1, "title", NULL);
 
     gtk_text_buffer_insert_with_tags_by_name(buffer, &iter,
-        "Loading...", -1, "lmarg", NULL);
+        "Loading...", -1, "text", NULL);
 
     /* Separator */
     separator = gtk_hseparator_new ();
@@ -216,7 +214,7 @@ lyrics_window_update (LyricsInfo *lyricsInfo) {
     gtk_text_buffer_delete (lyricsInfo->text_buffer, &startIter, &endIter);
 
     gtk_text_buffer_insert_with_tags_by_name(lyricsInfo->text_buffer,
-        &startIter, lyricsInfo->text, -1, "lmarg", NULL);
+        &startIter, lyricsInfo->text, -1, "text", NULL);
     gdk_threads_leave ();
 }
 
