@@ -37,8 +37,8 @@ typedef struct _LyricsInfo
   char *url;
   char *text;
   int text_size;
+  GtkTextBuffer *text_buffer;
 } LyricsInfo;
-
 
 DB_plugin_t *
 lyrics_load (DB_functions_t *api) {
@@ -106,9 +106,7 @@ lyrics_uri_encode (char *out, int outl, const char *str) {
 }
 
 static void
-lyrics_show (LyricsInfo *lyricsInfo) {
-    gdk_threads_enter();
-    
+lyrics_window_create (LyricsInfo *lyricsInfo) {
     GtkWidget *window;
     GtkWidget *scrollWindow;
     GtkWidget *view;
@@ -120,6 +118,8 @@ lyrics_show (LyricsInfo *lyricsInfo) {
     GtkTextBuffer *buffer;
     GtkTextIter iter;
 
+
+    gdk_threads_enter();
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
     gtk_window_set_default_size(GTK_WINDOW(window), 600, 600);
@@ -147,17 +147,16 @@ lyrics_show (LyricsInfo *lyricsInfo) {
 
     gtk_box_pack_start(GTK_BOX(vbox), scrollWindow, TRUE, TRUE, 0);
 
-    /*gtk_widget_show (scrollWindow);*/
-
     /* GtkTextViewBuffer */
     buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+    lyricsInfo->text_buffer = buffer;
 
     /* Tags */
     gtk_text_buffer_create_tag(buffer, "bold", 
       "weight", PANGO_WEIGHT_BOLD, NULL);
 
     gtk_text_buffer_create_tag(buffer, "gap",
-       "pixels_above_lines", 10, NULL);
+       "pixels_below_lines", 10, NULL);
 
     gtk_text_buffer_create_tag(buffer, "lmarg", 
       "left_margin", 5, NULL);
@@ -168,29 +167,26 @@ lyrics_show (LyricsInfo *lyricsInfo) {
 
     gtk_text_buffer_get_iter_at_offset(buffer, &iter, 0);
 
-
     /* Text inserts */
     gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        lyricsInfo->artist, -1, "font", "bold", "lmarg", NULL);
+        lyricsInfo->artist, -1, "font", "bold", "lmarg", "gap", NULL);
     gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        " - ", -1, "font", "bold", "lmarg", NULL);
+        " - ", -1, "font", "bold", "lmarg", "gap", NULL);
     gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        lyricsInfo->title, -1, "font", "bold", "lmarg", NULL);
+        lyricsInfo->title, -1, "font", "bold", "lmarg", "gap", NULL);
     gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        "\n", -1, "font", "bold", "lmarg", NULL);
+        "\n", -1, "font", "bold", "lmarg", "gap", NULL);
 
     gtk_text_buffer_insert_with_tags_by_name(buffer, &iter,
-        lyricsInfo->text, -1, "lmarg", NULL);
+        "Loading...", -1, "lmarg", NULL);
 
     /* Separator */
     separator = gtk_hseparator_new ();
     gtk_box_pack_start (GTK_BOX (vbox), separator, FALSE, TRUE, 0);
-    /*gtk_widget_show (separator);*/
 
     /* HBox */
     hbox = gtk_hbutton_box_new();
     gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, TRUE, 0);
-    /*gtk_widget_show (hbox);*/
 
     /* Close Button */
     close = gtk_button_new_with_label ("Close");
@@ -211,8 +207,24 @@ lyrics_show (LyricsInfo *lyricsInfo) {
 }
 
 static void
+lyrics_window_update (LyricsInfo *lyricsInfo) {
+    GtkTextIter startIter, endIter;
+
+    gdk_threads_enter ();
+    gtk_text_buffer_get_iter_at_line (lyricsInfo->text_buffer, &startIter, 1);
+    gtk_text_buffer_get_end_iter (lyricsInfo->text_buffer, &endIter);
+    gtk_text_buffer_delete (lyricsInfo->text_buffer, &startIter, &endIter);
+
+    gtk_text_buffer_insert_with_tags_by_name(lyricsInfo->text_buffer,
+        &startIter, lyricsInfo->text, -1, "lmarg", NULL);
+    gdk_threads_leave ();
+}
+
+static void
 lyrics_lookup_thread (void *lyricsInfo_ptr) {
     LyricsInfo *lyricsInfo = lyricsInfo_ptr;
+
+    lyrics_window_create(lyricsInfo);
 
     DB_FILE *fp = deadbeef->fopen (lyricsInfo->url);
     if (!fp) {
@@ -303,7 +315,7 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
     free(lyricsInfo->text);
     lyricsInfo->text = lyrics_text;
     
-    lyrics_show(lyricsInfo);
+    lyrics_window_update(lyricsInfo);
 }
 
 static int
