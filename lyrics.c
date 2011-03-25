@@ -118,12 +118,18 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
     GtkTextBuffer *buffer;
     GtkTextIter iter;
 
+    char *window_title = NULL;
+    if (-1 == asprintf (&window_title, "%s - %s", lyricsInfo->artist, lyricsInfo->title))
+    {
+        lyrics_free(lyricsInfo);
+        return;
+    }
 
     gdk_threads_enter();
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
     gtk_window_set_default_size(GTK_WINDOW(window), 600, 600);
-    gtk_window_set_title(GTK_WINDOW(window), "Lyrics");
+    gtk_window_set_title(GTK_WINDOW(window), window_title);
     gtk_container_set_border_width(GTK_CONTAINER(window), 5);
     GTK_WINDOW(window)->allow_shrink = TRUE;
 
@@ -167,11 +173,7 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
 
     /* Text inserts */
     gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        lyricsInfo->artist, -1, "title", NULL);
-    gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        " - ", -1, "title", NULL);
-    gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
-        lyricsInfo->title, -1, "title", NULL);
+        window_title, -1, "title", NULL);
     gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
         "\n", -1, "title", NULL);
 
@@ -200,6 +202,8 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
     gtk_container_add(GTK_CONTAINER(window), vbox);
 
     gtk_widget_show_all(window);
+
+    free(window_title);
 
     gdk_threads_leave();
 }
