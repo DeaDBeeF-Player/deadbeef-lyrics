@@ -270,7 +270,7 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
     
     // Compile regexp
     pcre *re = pcre_compile("&lt;lyrics>(.*)&lt;/lyrics>",
-    PCRE_MULTILINE | PCRE_DOTALL | PCRE_UTF8,
+    PCRE_MULTILINE | PCRE_DOTALL | PCRE_UTF8 | PCRE_UNGREEDY,
     &error, &erroffset, NULL);
 
     if (re == NULL)
