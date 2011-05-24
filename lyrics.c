@@ -392,6 +392,6 @@ static DB_misc_t plugin = {
         "along with this program; if not, write to the Free Software\n"
         "Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.\n"
     ,
-    .plugin.website = "https://bitbucket.org/wisetroll/deadbeef-lyrics",
+    .plugin.website = "https://bitbucket.org/trollixx/deadbeef-lyrics",
     .plugin.get_actions = lyrics_get_actions
 };
