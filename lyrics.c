@@ -6,12 +6,12 @@
     modify it under the terms of the GNU General Public License
     as published by the Free Software Foundation; either version 2
     of the License, or (at your option) any later version.
-    
+
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-    
+
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -60,7 +60,7 @@ ddb_lyrics_load (DB_functions_t *api) {
 static void
 lyrics_free(void *lyricsInfo_ptr) {
     LyricsInfo *lyricsInfo = lyricsInfo_ptr;
-    
+
     deadbeef->mutex_lock(lyricsInfo->mutex);
     free(lyricsInfo->artist);
     free(lyricsInfo->title);
@@ -157,7 +157,7 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
         gtk_text_view_get_vadjustment (GTK_TEXT_VIEW(view))
     );
     gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW(scrollWindow), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    
+
     gtk_container_add (GTK_CONTAINER(scrollWindow), view);
 
     gtk_box_pack_start(GTK_BOX(vbox), scrollWindow, TRUE, TRUE, 0);
@@ -174,16 +174,16 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
         "left_margin", 5,
         NULL);
 
-    gtk_text_buffer_create_tag(buffer, "text", 
+    gtk_text_buffer_create_tag(buffer, "text",
         "left_margin", 5,
         NULL);
 
     gtk_text_buffer_get_iter_at_offset(buffer, &iter, 0);
 
     /* Text inserts */
-    gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
+    gtk_text_buffer_insert_with_tags_by_name (buffer, &iter,
         window_title, -1, "title", NULL);
-    gtk_text_buffer_insert_with_tags_by_name (buffer, &iter, 
+    gtk_text_buffer_insert_with_tags_by_name (buffer, &iter,
         "\n", -1, "title", NULL);
 
     gtk_text_buffer_insert_with_tags_by_name(buffer, &iter,
@@ -268,7 +268,7 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
             deadbeef->fclose (fp);
             lyricsInfo->error = TRUE;
             goto update;
-        }        
+        }
     }
 
     deadbeef->fclose (fp);
@@ -277,7 +277,7 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
         deadbeef->mutex_unlock(lyricsInfo->mutex);
         return;
     }
-    
+
     char *startAnchor = "&lt;lyrics>";
     char *endAnchor = "&lt;/lyrics>";
     char *startIndex = strstr(lyricsInfo->text, startAnchor);
@@ -291,9 +291,9 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
     } else {
         lyricsInfo->error = TRUE;
     }
-    
 
-update:    
+
+update:
     if (!lyricsInfo->window_closed) {
         lyrics_window_update(lyricsInfo);
     }
@@ -375,7 +375,7 @@ static DB_misc_t plugin = {
     .plugin.type = DB_PLUGIN_MISC,
     .plugin.name = "Lyrics",
     .plugin.descr = "Lyrics plugin for DeaDBeeF music player",
-    .plugin.copyright = 
+    .plugin.copyright =
         "Copyright (C) 2011 Oleg Shparber <trollixx@users.sourceforge.net>\n"
         "\n"
         "This program is free software; you can redistribute it and/or\n"
