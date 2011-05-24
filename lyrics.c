@@ -26,6 +26,15 @@
 #define trace(...) { fprintf(stderr, __VA_ARGS__); }
 //#define trace(fmt,...)
 
+#if !GTK_CHECK_VERSION(2,22,0)
+GtkAdjustment* gtk_text_view_get_hadjustment (GtkTextView *text_view) {
+    return text_view->hadjustment;
+}
+GtkAdjustment* gtk_text_view_get_vadjustment (GtkTextView *text_view) {
+    return text_view->vadjustment;
+}
+#endif
+
 static DB_misc_t plugin;
 static DB_functions_t *deadbeef;
 
@@ -43,7 +52,7 @@ typedef struct _LyricsInfo
 } LyricsInfo;
 
 DB_plugin_t *
-lyrics_load (DB_functions_t *api) {
+ddb_lyrics_load (DB_functions_t *api) {
     deadbeef = api;
     return DB_PLUGIN (&plugin);
 }
