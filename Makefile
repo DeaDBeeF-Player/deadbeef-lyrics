@@ -1,11 +1,12 @@
-PREFIX ?= /usr
+PREFIX?=/usr
 
 OUT=ddb_lyrics.so
 INCLUDE="-I${PREFIX}/include"
-GTK?=`pkg-config --cflags --libs gtk+-2.0`
+GTK_INCLUDE?=`pkg-config --cflags gtk+-2.0`
+GTK_LIBS?=`pkg-config --libs gtk+-2.0`
 CC?=gcc
-CFLAGS+=-Wall -fPIC -D_GNU_SOURCE ${GTK}
-LDFLAGS+=-shared
+CFLAGS+=-Wall -fPIC -D_GNU_SOURCE ${INCLUDE} ${GTK_INCLUDE}
+LDFLAGS+=-shared ${GTK_LIBS}
 
 SOURCES=lyrics.c
 
