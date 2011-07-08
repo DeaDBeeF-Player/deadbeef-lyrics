@@ -28,10 +28,10 @@
 //#define trace(fmt,...)
 
 #if !GTK_CHECK_VERSION(2,22,0)
-GtkAdjustment* gtk_text_view_get_hadjustment (GtkTextView *text_view) {
+GtkAdjustment* gtk_text_view_get_hadjustment(GtkTextView *text_view) {
     return text_view->hadjustment;
 }
-GtkAdjustment* gtk_text_view_get_vadjustment (GtkTextView *text_view) {
+GtkAdjustment* gtk_text_view_get_vadjustment(GtkTextView *text_view) {
     return text_view->vadjustment;
 }
 #endif
@@ -39,8 +39,7 @@ GtkAdjustment* gtk_text_view_get_vadjustment (GtkTextView *text_view) {
 static DB_misc_t plugin;
 static DB_functions_t *deadbeef;
 
-typedef struct _LyricsInfo
-{
+typedef struct _LyricsInfo {
   char *artist;
   char *title;
   char *url;
@@ -53,9 +52,9 @@ typedef struct _LyricsInfo
 } LyricsInfo;
 
 DB_plugin_t *
-ddb_lyrics_load (DB_functions_t *api) {
+ddb_lyrics_load(DB_functions_t *api) {
     deadbeef = api;
-    return DB_PLUGIN (&plugin);
+    return DB_PLUGIN(&plugin);
 }
 
 static void
@@ -81,7 +80,7 @@ lyrics_free_callback(GtkWidget *widget, LyricsInfo *lyricsInfo) {
 
 // returns number of encoded chars on success, or -1 in case of error
 static int
-lyrics_uri_encode (char *out, int outl, const char *str) {
+lyrics_uri_encode(char *out, int outl, const char *str) {
     int l = outl;
 
     while (*str) {
@@ -94,17 +93,15 @@ lyrics_uri_encode (char *out, int outl, const char *str) {
             (*str >= 'a' && *str <= 'z') ||
             (*str >= 'A' && *str <= 'Z') ||
             (*str == ' ')
-        ))
-        {
+        )) {
             if (outl <= 3) {
                 return -1;
             }
-            snprintf (out, outl, "%%%02x", (uint8_t)*str);
+            snprintf(out, outl, "%%%02x", (uint8_t)*str);
             outl -= 3;
             str++;
             out += 3;
-        }
-        else {
+        } else {
             *out = *str == ' ' ? '_' : *str;
             out++;
             str++;
@@ -124,7 +121,7 @@ lyrics_window_close(GtkWidget *widget, GdkEventKey *event, GtkWindow *window) {
 }
 
 static void
-lyrics_window_create (LyricsInfo *lyricsInfo) {
+lyrics_window_create(LyricsInfo *lyricsInfo) {
     GtkWidget *window;
     GtkWidget *scrollWindow;
     GtkWidget *view;
@@ -137,8 +134,7 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
     GtkTextIter iter;
 
     char *window_title = NULL;
-    if (-1 == asprintf (&window_title, "%s - %s", lyricsInfo->artist, lyricsInfo->title))
-    {
+    if (-1 == asprintf(&window_title, "%s - %s", lyricsInfo->artist, lyricsInfo->title)) {
         lyrics_free(lyricsInfo);
         return;
     }
@@ -151,10 +147,10 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
     gtk_container_set_border_width(GTK_CONTAINER(window), 5);
     GTK_WINDOW(window)->allow_shrink = TRUE;
 
-    gtk_signal_connect (GTK_OBJECT (window), "destroy",
+    gtk_signal_connect(GTK_OBJECT(window), "destroy",
         G_CALLBACK(lyrics_free_callback), lyricsInfo);
 
-    gtk_signal_connect (GTK_OBJECT (window), "key-release-event",
+    gtk_signal_connect(GTK_OBJECT(window), "key-release-event",
         G_CALLBACK(lyrics_window_close), GTK_OBJECT(window));
 
     vbox = gtk_vbox_new(FALSE, 5);
@@ -165,12 +161,12 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
 
     /* GtkScrolledWindow */
     scrollWindow = gtk_scrolled_window_new(
-        gtk_text_view_get_hadjustment (GTK_TEXT_VIEW(view)),
-        gtk_text_view_get_vadjustment (GTK_TEXT_VIEW(view))
+        gtk_text_view_get_hadjustment(GTK_TEXT_VIEW(view)),
+        gtk_text_view_get_vadjustment(GTK_TEXT_VIEW(view))
     );
-    gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW(scrollWindow), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrollWindow), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
-    gtk_container_add (GTK_CONTAINER(scrollWindow), view);
+    gtk_container_add(GTK_CONTAINER(scrollWindow), view);
 
     gtk_box_pack_start(GTK_BOX(vbox), scrollWindow, TRUE, TRUE, 0);
 
@@ -193,32 +189,32 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
     gtk_text_buffer_get_iter_at_offset(buffer, &iter, 0);
 
     /* Text inserts */
-    gtk_text_buffer_insert_with_tags_by_name (buffer, &iter,
+    gtk_text_buffer_insert_with_tags_by_name(buffer, &iter,
         window_title, -1, "title", NULL);
-    gtk_text_buffer_insert_with_tags_by_name (buffer, &iter,
+    gtk_text_buffer_insert_with_tags_by_name(buffer, &iter,
         "\n", -1, "title", NULL);
 
     gtk_text_buffer_insert_with_tags_by_name(buffer, &iter,
         "Loading...", -1, "text", NULL);
 
     /* Separator */
-    separator = gtk_hseparator_new ();
-    gtk_box_pack_start (GTK_BOX (vbox), separator, FALSE, TRUE, 0);
+    separator = gtk_hseparator_new();
+    gtk_box_pack_start(GTK_BOX(vbox), separator, FALSE, TRUE, 0);
 
     /* HBox */
     hbox = gtk_hbutton_box_new();
-    gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 0);
 
     /* Close Button */
-    close = gtk_button_new_with_label ("Close");
-    gtk_signal_connect_object (GTK_OBJECT (close), "clicked",
-                               G_CALLBACK (gtk_widget_destroy),
-                               GTK_OBJECT (window));
+    close = gtk_button_new_with_label("Close");
+    gtk_signal_connect_object(GTK_OBJECT(close), "clicked",
+                              G_CALLBACK(gtk_widget_destroy),
+                              GTK_OBJECT(window));
 
     gtk_box_pack_start(GTK_BOX(hbox), close, FALSE, FALSE, 0);
 
-    gtk_widget_grab_focus (close);
-    gtk_widget_show (close);
+    gtk_widget_grab_focus(close);
+    gtk_widget_show(close);
 
     gtk_container_add(GTK_CONTAINER(window), vbox);
 
@@ -230,13 +226,13 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
 }
 
 static void
-lyrics_window_update (LyricsInfo *lyricsInfo) {
+lyrics_window_update(LyricsInfo *lyricsInfo) {
     GtkTextIter startIter, endIter;
 
-    gdk_threads_enter ();
-    gtk_text_buffer_get_iter_at_line (lyricsInfo->text_buffer, &startIter, 1);
-    gtk_text_buffer_get_end_iter (lyricsInfo->text_buffer, &endIter);
-    gtk_text_buffer_delete (lyricsInfo->text_buffer, &startIter, &endIter);
+    gdk_threads_enter();
+    gtk_text_buffer_get_iter_at_line(lyricsInfo->text_buffer, &startIter, 1);
+    gtk_text_buffer_get_end_iter(lyricsInfo->text_buffer, &endIter);
+    gtk_text_buffer_delete(lyricsInfo->text_buffer, &startIter, &endIter);
 
     if (!lyricsInfo->error) {
         gtk_text_buffer_insert_with_tags_by_name(lyricsInfo->text_buffer,
@@ -245,20 +241,20 @@ lyrics_window_update (LyricsInfo *lyricsInfo) {
         gtk_text_buffer_insert_with_tags_by_name(lyricsInfo->text_buffer,
             &startIter, "Not found", -1, "text", NULL);
     }
-    gdk_threads_leave ();
+    gdk_threads_leave();
 }
 
 static void
-lyrics_lookup_thread (void *lyricsInfo_ptr) {
+lyrics_lookup_thread(void *lyricsInfo_ptr) {
     LyricsInfo *lyricsInfo = lyricsInfo_ptr;
 
     deadbeef->mutex_lock(lyricsInfo->mutex);
 
     lyrics_window_create(lyricsInfo);
 
-    DB_FILE *fp = deadbeef->fopen (lyricsInfo->url);
+    DB_FILE *fp = deadbeef->fopen(lyricsInfo->url);
     if (!fp) {
-        trace ("lyrics: failed to open %s\n", lyricsInfo->url);
+        trace("lyrics: failed to open %s\n", lyricsInfo->url);
         lyricsInfo->error = TRUE;
         goto update;
     }
@@ -269,21 +265,21 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
     char *buffer[4096];
     int len;
 
-    while ((len = deadbeef->fread (buffer, 1, sizeof (buffer), fp)) > 0) {
-        lyricsInfo->text = (char *)realloc(lyricsInfo->text, lyricsInfo->text_size + sizeof (buffer) + 1);
+    while ((len = deadbeef->fread(buffer, 1, sizeof(buffer), fp)) > 0) {
+        lyricsInfo->text = (char *)realloc(lyricsInfo->text, lyricsInfo->text_size + sizeof(buffer) + 1);
 
         if (lyricsInfo->text) {
-            memcpy(lyricsInfo->text + lyricsInfo->text_size - 1, buffer, sizeof (buffer));
-            lyricsInfo->text_size += sizeof (buffer);
+            memcpy(lyricsInfo->text + lyricsInfo->text_size - 1, buffer, sizeof(buffer));
+            lyricsInfo->text_size += sizeof(buffer);
             lyricsInfo->text[lyricsInfo->text_size] = 0;
         } else {
-            deadbeef->fclose (fp);
+            deadbeef->fclose(fp);
             lyricsInfo->error = TRUE;
             goto update;
         }
     }
 
-    deadbeef->fclose (fp);
+    deadbeef->fclose(fp);
 
     if (lyricsInfo->window_closed) {
         deadbeef->mutex_unlock(lyricsInfo->mutex);
@@ -321,13 +317,13 @@ update:
 }
 
 static int
-lyrics_action_lookup (DB_plugin_action_t *action, DB_playItem_t *it)
-{
-    const char *artist_meta = deadbeef->pl_find_meta (it, "artist");
-    const char *title_meta = deadbeef->pl_find_meta (it, "title");
+lyrics_action_lookup(DB_plugin_action_t *action, DB_playItem_t *it) {
+    const char *artist_meta = deadbeef->pl_find_meta(it, "artist");
+    const char *title_meta = deadbeef->pl_find_meta(it, "title");
 
-    if (!title_meta || !artist_meta)
+    if (!title_meta || !artist_meta) {
         return 0;
+    }
 
     char *artist = (char *)malloc(strlen(artist_meta) + 1);
     char *title = (char *)malloc(strlen(title_meta) + 1);
@@ -335,18 +331,21 @@ lyrics_action_lookup (DB_plugin_action_t *action, DB_playItem_t *it)
     strcpy(artist, artist_meta);
     strcpy(title, title_meta);
 
-    char eartist [strlen (artist) * 3 + 1];
-    char etitle [strlen (title) * 3 + 1];
+    char eartist [strlen(artist) * 3 + 1];
+    char etitle [strlen(title) * 3 + 1];
 
-    if (-1 == lyrics_uri_encode (eartist, sizeof (eartist), artist))
+    if (-1 == lyrics_uri_encode(eartist, sizeof(eartist), artist)) {
         return 0;
+    }
 
-    if (-1 == lyrics_uri_encode (etitle, sizeof (etitle), title))
+    if (-1 == lyrics_uri_encode(etitle, sizeof(etitle), title)) {
         return 0;
+    }
 
     char *url = NULL;
-    if (-1 == asprintf (&url, "http://lyrics.wikia.com/index.php?title=%s:%s&action=edit", eartist, etitle))
+    if (-1 == asprintf(&url, "http://lyrics.wikia.com/index.php?title=%s:%s&action=edit", eartist, etitle)) {
         return 0;
+    }
 
     LyricsInfo *lyricsInfo = malloc(sizeof(LyricsInfo));
     lyricsInfo->artist = artist;
@@ -371,16 +370,12 @@ static DB_plugin_action_t lookup_action = {
 };
 
 static DB_plugin_action_t *
-lyrics_get_actions (DB_playItem_t *it)
-{
+lyrics_get_actions(DB_playItem_t *it) {
     if (!it ||
-        !deadbeef->pl_find_meta (it, "artist") ||
-        !deadbeef->pl_find_meta (it, "title"))
-    {
+        !deadbeef->pl_find_meta(it, "artist") ||
+        !deadbeef->pl_find_meta(it, "title")) {
          lookup_action.flags |= DB_ACTION_DISABLED;
-    }
-    else
-    {
+    } else {
          lookup_action.flags &= ~DB_ACTION_DISABLED;
     }
     return &lookup_action;
