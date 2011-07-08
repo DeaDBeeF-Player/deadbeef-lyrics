@@ -66,9 +66,9 @@ lyrics_free(void *lyricsInfo_ptr) {
     free(lyricsInfo->title);
     free(lyricsInfo->url);
     free(lyricsInfo->text);
-    free(lyricsInfo);
     deadbeef->mutex_unlock(lyricsInfo->mutex);
     deadbeef->mutex_free(lyricsInfo->mutex);
+    free(lyricsInfo);
 }
 
 
