@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <gtk/gtk.h>
+#include <gdk/gdkkeysyms.h>
 #include <deadbeef/deadbeef.h>
 
 #define trace(...) { fprintf(stderr, __VA_ARGS__); }
@@ -114,6 +115,14 @@ lyrics_uri_encode (char *out, int outl, const char *str) {
     return l - outl;
 }
 
+static gboolean
+lyrics_window_close(GtkWidget *widget, GdkEventKey *event, GtkWindow *window) {
+    if (event->keyval == GDK_Escape) {
+        gtk_widget_destroy(GTK_WIDGET(window));
+    }
+    return TRUE;
+}
+
 static void
 lyrics_window_create (LyricsInfo *lyricsInfo) {
     GtkWidget *window;
@@ -144,6 +153,9 @@ lyrics_window_create (LyricsInfo *lyricsInfo) {
 
     gtk_signal_connect (GTK_OBJECT (window), "destroy",
         G_CALLBACK(lyrics_free_callback), lyricsInfo);
+
+    gtk_signal_connect (GTK_OBJECT (window), "key-release-event",
+        G_CALLBACK(lyrics_window_close), GTK_OBJECT(window));
 
     vbox = gtk_vbox_new(FALSE, 5);
 
