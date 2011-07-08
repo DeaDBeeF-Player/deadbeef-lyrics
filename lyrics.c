@@ -278,6 +278,13 @@ lyrics_lookup_thread (void *lyricsInfo_ptr) {
         return;
     }
 
+    // Catch placeholder
+    char *placeholder = "PUT LYRICS HERE";
+    if (strstr(lyricsInfo->text, placeholder)) {
+        lyricsInfo->error = TRUE;
+        goto update;
+    }
+
     char *startAnchor = "&lt;lyrics>";
     char *endAnchor = "&lt;/lyrics>";
     char *startIndex = strstr(lyricsInfo->text, startAnchor);
